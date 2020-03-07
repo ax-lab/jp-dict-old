@@ -1,3 +1,5 @@
+//! Import of Yomichan compatible data.
+
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -8,6 +10,7 @@ use serde_json;
 
 use dict::*;
 
+/// Imports a `.zip` file containing Yomichan compatible dictionary data.
 pub fn import_file<P: AsRef<std::path::Path>>(path: P) -> Result<Dict, std::io::Error> {
 	/// The index file contains the basic information about the dictionary data.
 	const INDEX_FILE_NAME: &'static str = "index.json";

@@ -1,3 +1,5 @@
+//! Data structures for the source Yomichan data.
+
 use std::collections::HashMap;
 use std::fmt;
 

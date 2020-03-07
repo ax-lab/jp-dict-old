@@ -14,6 +14,9 @@ use unicase::UniCase;
 
 const IMPORT_DATA_DIRECTORY: &'static str = "data";
 
+mod db;
+use db::DB;
+
 mod dict;
 
 mod import;
@@ -65,9 +68,14 @@ fn import<P: AsRef<std::path::Path>>(import_dir: P) -> Result<(), std::io::Error
 
 	println!("Found {} file(s) to import...", entries.len());
 
+	let mut db = DB::default();
 	for fs in entries {
-		import_file(fs)?;
+		let dict = import_file(fs)?;
+		db.import_dict(dict);
 	}
+
+	println!("\nImported database:");
+	db.dump_info();
 
 	Ok(())
 }
