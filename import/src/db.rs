@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::dict::{Dict, Term};
+use crate::dict::{Dict, Tag, Term};
 
 /// Root structure for dictionary data.
 #[derive(Default)]
@@ -13,11 +13,17 @@ pub struct DB {
 	index_jp: HashMap<String, usize>,
 	freq_terms: HashMap<String, u64>,
 	freq_kanji: HashMap<String, u64>,
+
+	tags: HashMap<String, Tag>,
 }
 
 impl DB {
 	/// Imports dictionary data into the dictionary.
 	pub fn import_dict(&mut self, dict: Dict) {
+		for it in dict.tags {
+			self.import_tag(it);
+		}
+
 		for it in dict.terms {
 			self.import_term(it);
 		}
@@ -43,6 +49,29 @@ impl DB {
 			self.strings_en.len(),
 			bytes(bytes_en)
 		);
+	}
+
+	fn import_tag(&mut self, tag: Tag) {
+		if let Some(old_tag) = self.tags.get_mut(&tag.name) {
+			if tag.notes.len() > 0 && tag.notes != old_tag.notes {
+				if old_tag.notes.len() > 0 {
+					old_tag.notes = format!("{} / {}", old_tag.notes, tag.notes);
+				} else {
+					old_tag.notes = tag.notes;
+				}
+			}
+			if tag.category.len() > 0 && tag.category != old_tag.category {
+				if old_tag.category.len() > 0 {
+					eprintln!(
+						"WARNING: overridden category of tag `{}` (was `{}`, with `{}`)",
+						tag.name, old_tag.category, tag.category
+					);
+				}
+				old_tag.category = tag.category;
+			}
+		} else {
+			self.tags.insert(tag.name.clone(), tag);
+		}
 	}
 
 	fn import_term(&mut self, term: Term) {
