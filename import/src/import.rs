@@ -169,7 +169,7 @@ fn read_meta<R: io::Read>(input: R) -> io::Result<Vec<Meta>> {
 	struct MetaRow(
 		String, // expression
 		String, // mode
-		u64,    // data
+		u32,    // data
 	);
 	let rows: Vec<MetaRow> = serde_json::from_reader(input)?;
 	let mut result: Vec<Meta> = Vec::new();

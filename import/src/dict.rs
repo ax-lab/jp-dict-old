@@ -216,7 +216,7 @@ pub struct Meta {
 	pub mode: String,
 
 	/// Metadata value.
-	pub data: u64,
+	pub data: u32,
 }
 
 impl fmt::Display for Meta {

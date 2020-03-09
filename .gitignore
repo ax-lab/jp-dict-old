@@ -11,3 +11,4 @@ Cargo.lock
 
 # Ignore data files
 data/*.zip
+data/*.in
