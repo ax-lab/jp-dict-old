@@ -2,6 +2,7 @@ extern crate regex;
 extern crate serde;
 extern crate serde_json;
 extern crate unicase;
+extern crate unicode_segmentation;
 extern crate zip;
 
 #[macro_use]

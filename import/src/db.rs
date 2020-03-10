@@ -9,6 +9,8 @@ use std::io::Write;
 
 use crate::dict::{Dict, Kanji, Tag, Term};
 
+use unicode_segmentation::UnicodeSegmentation;
+
 /// Root structure for dictionary data.
 #[derive(Default)]
 pub struct DB {
@@ -22,6 +24,13 @@ pub struct DB {
 
 	terms: Vec<TermRow>,
 	kanji: Vec<KanjiRow>,
+
+	// Index of sorted term/readings to japanese terms.
+	index_prefix_jp: Vec<(usize, usize)>,
+
+	// Index of sorted term/readings suffixes to japanese terms. Suffixes are
+	// reversed strings.
+	index_suffix_jp: Vec<(usize, usize)>,
 }
 
 impl DB {
@@ -67,6 +76,36 @@ impl DB {
 			.sort_by(|a: &KanjiRow, b: &KanjiRow| -> std::cmp::Ordering {
 				b.frequency.cmp(&a.frequency)
 			});
+
+		//
+		// Build indexes
+		//
+
+		let start = std::time::Instant::now();
+		println!("\n>>> Building indexes...");
+
+		let mut index_prefix_jp = Vec::new();
+		for (index, it) in self.terms.iter().enumerate() {
+			if it.expression != 0 {
+				index_prefix_jp.push((it.expression, index));
+			}
+			if it.reading != 0 {
+				index_prefix_jp.push((it.reading, index));
+			}
+		}
+		index_prefix_jp.sort_by(|a, b| self.strings[a.0].cmp(&self.strings[b.0]));
+		self.index_prefix_jp = index_prefix_jp;
+
+		let mut index_suffix_jp = self.index_prefix_jp.clone();
+		for it in index_suffix_jp.iter_mut() {
+			let s: String = self.strings[it.0].graphemes(true).rev().collect();
+			let s = self.intern(s);
+			it.0 = s;
+		}
+		index_suffix_jp.sort_by(|a, b| self.strings[a.0].cmp(&self.strings[b.0]));
+		self.index_suffix_jp = index_suffix_jp;
+
+		println!("... Finished building in {:?}", start.elapsed());
 	}
 
 	/// Dumps information about the database to the console.
@@ -191,6 +230,30 @@ impl DB {
 		}
 		write!(kanji, "\n")?;
 		drop(kanji);
+
+		//
+		// Output indexes
+		//
+
+		println!("... writing data/index_prefix_jp.in");
+		let mut index_prefix_jp = BufWriter::new(fs::File::create("data/index_prefix_jp.in")?);
+		write!(index_prefix_jp, "{}\n", PRELUDE)?;
+		write!(index_prefix_jp, "// Fields: (key, term)\n\n")?;
+		for it in self.index_prefix_jp.iter() {
+			write!(index_prefix_jp, "{{ {}, {} }},\n", it.0, it.1)?;
+		}
+		write!(index_prefix_jp, "\n")?;
+		drop(index_prefix_jp);
+
+		println!("... writing data/index_suffix_jp.in");
+		let mut index_suffix_jp = BufWriter::new(fs::File::create("data/index_suffix_jp.in")?);
+		write!(index_suffix_jp, "{}\n", PRELUDE)?;
+		write!(index_suffix_jp, "// Fields: (key, term)\n\n")?;
+		for it in self.index_suffix_jp.iter() {
+			write!(index_suffix_jp, "{{ {}, {} }},\n", it.0, it.1)?;
+		}
+		write!(index_suffix_jp, "\n")?;
+		drop(index_suffix_jp);
 
 		Ok(())
 	}
