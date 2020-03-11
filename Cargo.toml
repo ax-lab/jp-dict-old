@@ -8,7 +8,16 @@ repository = "https://github.com/ricardobm/x-jisho-data/"
 keywords = ["japanese"]
 publish = false
 
+[lib]
+crate-type = ["cdylib", "rlib", "staticlib"]
+
 [workspace]
 members = [
-	"import"
+	"db",
+	"import",
+	"examples/query"
 ]
+
+[dependencies]
+db = { path = "./db" }
+lazy_static = "1.4"

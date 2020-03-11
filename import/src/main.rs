@@ -8,15 +8,15 @@ extern crate zip;
 #[macro_use]
 extern crate lazy_static;
 
+extern crate db;
+
 use std::fs;
-use std::result::Result;
 
 use unicase::UniCase;
 
 const IMPORT_DATA_DIRECTORY: &'static str = "data";
 
-mod db;
-use db::DB;
+mod generate;
 
 mod dict;
 
@@ -52,7 +52,7 @@ fn main() {
 	}
 }
 
-fn import<P: AsRef<std::path::Path>>(import_dir: P) -> Result<(), std::io::Error> {
+fn import<P: AsRef<std::path::Path>>(import_dir: P) -> generate::Result<()> {
 	let start = std::time::Instant::now();
 	let mut entries = Vec::new();
 	for entry in fs::read_dir(import_dir)? {
@@ -70,20 +70,20 @@ fn import<P: AsRef<std::path::Path>>(import_dir: P) -> Result<(), std::io::Error
 
 	println!("Found {} file(s) to import...", entries.len());
 
-	let mut db = DB::default();
+	let mut wrapper = generate::Wrapper::default();
 	for fs in entries {
 		let dict = import_file(fs)?;
-		db.import_dict(dict);
+		wrapper.import_dict(dict);
 	}
 
-	db.finish_import();
+	wrapper.finish_import();
 
 	println!("\nImported database (elapsed {:?}):", start.elapsed());
-	db.dump_info();
+	wrapper.dump_info();
 
 	let start = std::time::Instant::now();
 	println!("\nExporting...");
-	db.output()?;
+	wrapper.output()?;
 	println!("... completed in {:?}", start.elapsed());
 
 	Ok(())
