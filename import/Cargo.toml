@@ -2,7 +2,6 @@
 name = "import"
 version = "0.1.0"
 description = "Japanese dictionary data import and code generation tool"
-repository = "https://github.com/ricardobm/x-jisho-data/"
 keywords = ["japanese"]
 publish = false
 

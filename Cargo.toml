@@ -1,10 +1,10 @@
 [package]
-name = "x-jisho-data"
+name = "x-jp-data"
 version = "0.1.0"
 authors = ["Ricardo B. Machado <ricardobm@gmail.com>"]
 license = "MIT"
 description = "Japanese dictionary library with words, kanji and frequency information"
-repository = "https://github.com/ricardobm/x-jisho-data/"
+repository = "https://github.com/ricardobm/x-jp-data/"
 keywords = ["japanese"]
 publish = false
 

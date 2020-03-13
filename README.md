@@ -1,4 +1,4 @@
-# x-jisho-data
+# x-jp-data
 
 Japanese dictionary library with words, kanji and frequency information.
 
