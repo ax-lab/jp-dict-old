@@ -52,7 +52,7 @@ fn main() {
 	}
 }
 
-fn import<P: AsRef<std::path::Path>>(import_dir: P) -> generate::Result<()> {
+fn import<P: AsRef<std::path::Path>>(import_dir: P) -> std::io::Result<()> {
 	let start = std::time::Instant::now();
 	let mut entries = Vec::new();
 	for entry in fs::read_dir(import_dir)? {
@@ -76,10 +76,7 @@ fn import<P: AsRef<std::path::Path>>(import_dir: P) -> generate::Result<()> {
 		wrapper.import_dict(dict);
 	}
 
-	wrapper.finish_import();
-
-	println!("\nImported database (elapsed {:?}):", start.elapsed());
-	wrapper.dump_info();
+	println!("\nImported database (elapsed {:?})", start.elapsed());
 
 	let start = std::time::Instant::now();
 	println!("\nExporting...");

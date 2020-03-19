@@ -2,29 +2,27 @@
 
 use std::collections::HashMap;
 use std::fs;
-
 use std::io::BufWriter;
+use std::io::Result;
 
 use crate::dict::{Dict, Kanji, Tag, Term};
-use db::{KanjiRow, TagRow, TermRow, DB};
-
-pub use db::Result;
 
 #[derive(Default)]
 pub struct Wrapper {
-	db: DB,
-
 	/// Frequency map of terms to number of appearances.
 	freq_terms: HashMap<String, u32>,
 
 	/// Frequency map of kanji to number of appearances.
 	freq_kanji: HashMap<String, u32>,
 
-	/// Map of string to interned string IDs. Used only during build.
-	intern_indexes: HashMap<String, usize>,
+	/// List of terms from all dictionaries.
+	terms: Vec<Term>,
 
-	/// Map interned string IDs to the respective `db.tags` index
-	tag_map: HashMap<usize, usize>,
+	/// List of kanji from all dictionaries.
+	kanji: Vec<Kanji>,
+
+	/// Set of tags from all dictionaries by name.
+	tag_map: HashMap<String, Tag>,
 }
 
 impl Wrapper {
@@ -43,88 +41,99 @@ impl Wrapper {
 		}
 
 		for it in dict.terms {
-			self.import_term(it);
+			self.map_tags(it.term_tags.clone());
+			self.map_tags(it.definition_tags.clone());
+			self.map_tags(it.rules.clone());
+			self.terms.push(it);
 		}
 
 		for it in dict.kanji {
-			self.import_kanji(it);
+			self.map_tags(it.tags.clone());
+			self.map_tags(it.stats.keys().cloned().collect());
+			self.kanji.push(it);
 		}
-	}
-
-	/// Post-processing after finishing all `import_dict` calls.
-	pub fn finish_import(&mut self) {
-		let start = std::time::Instant::now();
-		println!("\n>>> Building indexes...");
-
-		for it in self.db.terms.iter_mut() {
-			it.frequency = self
-				.freq_terms
-				.get(&self.db.strings[it.expression])
-				.cloned();
-		}
-
-		for it in self.db.kanji.iter_mut() {
-			it.frequency = self.freq_kanji.get(&it.character.to_string()).cloned();
-		}
-
-		self.db.build_indexes(&mut self.intern_indexes);
-		println!("... Finished building in {:?}", start.elapsed());
-	}
-
-	/// Dumps information about the database to the console.
-	pub fn dump_info(&self) {
-		let str_bytes = self.db.strings.iter().map(|x| x.len()).sum();
-		println!(
-			"- Strings: {}\t~ {:>9}",
-			self.db.strings.len(),
-			bytes(str_bytes)
-		);
 	}
 
 	/// Outputs all data to code files.
-	pub fn output(&self) -> Result<()> {
+	pub fn output(self) -> Result<()> {
+		let mut w = db::Writer::new();
+
+		let mut tag_map = HashMap::new();
+		for (index, (key, tag)) in self.tag_map.into_iter().enumerate() {
+			let tag = db::TagData {
+				name: w.intern(tag.name),
+				category: w.intern(tag.category),
+				order: tag.order,
+				notes: w.intern(tag.notes),
+			};
+			w.push_tag(tag);
+			tag_map.insert(key, index as u32);
+		}
+
+		for kanji in self.kanji {
+			let meanings: Vec<_> = kanji.meanings.into_iter().map(|x| w.intern(x)).collect();
+			let kunyomi: Vec<_> = kanji.kunyomi.into_iter().map(|x| w.intern(x)).collect();
+			let onyomi: Vec<_> = kanji.onyomi.into_iter().map(|x| w.intern(x)).collect();
+
+			let tags: Vec<_> = kanji
+				.tags
+				.into_iter()
+				.map(|x| tag_map.get(&x).cloned().unwrap())
+				.collect();
+
+			let mut stats: Vec<_> = kanji.stats.into_iter().collect();
+			stats.sort_by(|a, b| a.0.cmp(&b.0));
+			let stats: Vec<_> = stats
+				.into_iter()
+				.map(|(k, v)| (tag_map.get(&k).cloned().unwrap(), w.intern(v)))
+				.collect();
+
+			w.push_kanji(db::KanjiData {
+				character: kanji.character,
+				frequency: kanji.frequency.unwrap_or(0),
+				meanings: meanings,
+				kunyomi: kunyomi,
+				onyomi: onyomi,
+				tags: tags,
+				stats: stats,
+			});
+		}
+
+		for term in self.terms {
+			let term = db::TermData {
+				expression: w.intern(term.expression),
+				reading: w.intern(term.reading),
+				search_key: w.intern(term.search_key),
+				score: term.score,
+				sequence: term.sequence,
+				frequency: term.frequency.unwrap_or(0),
+				glossary: term.glossary.into_iter().map(|x| w.intern(x)).collect(),
+				rules: term
+					.rules
+					.into_iter()
+					.map(|x| tag_map.get(&x).cloned().unwrap())
+					.collect(),
+				term_tags: term
+					.term_tags
+					.into_iter()
+					.map(|x| tag_map.get(&x).cloned().unwrap())
+					.collect(),
+				definition_tags: term
+					.definition_tags
+					.into_iter()
+					.map(|x| tag_map.get(&x).cloned().unwrap())
+					.collect(),
+			};
+			w.push_term(term);
+		}
+
 		println!("... writing data/dictionary.in...");
 		let mut output = BufWriter::new(fs::File::create("data/dictionary.in")?);
-		self.db.serialize(&mut output)
-	}
-
-	fn import_term(&mut self, term: Term) {
-		let row = TermRow {
-			expression: self.intern(term.expression),
-			reading: self.intern(term.reading),
-			score: term.score,
-			sequence: term.sequence,
-			glossary: self.intern_all(term.glossary),
-			frequency: None,
-			rules: self.get_tags(term.rules),
-			term_tags: self.get_tags(term.term_tags),
-			definition_tags: self.get_tags(term.definition_tags),
-		};
-		self.db.terms.push(row);
-	}
-
-	fn import_kanji(&mut self, kanji: Kanji) {
-		let row = KanjiRow {
-			character: kanji.character,
-			meanings: self.intern_all(kanji.meanings),
-			onyomi: self.intern_all(kanji.onyomi),
-			kunyomi: self.intern_all(kanji.kunyomi),
-			frequency: None,
-			tags: self.get_tags(kanji.tags),
-			stats: kanji
-				.stats
-				.into_iter()
-				.map(|(k, v)| (self.intern(k), self.intern(v)))
-				.collect(),
-		};
-		self.db.kanji.push(row);
+		w.write(&mut output)
 	}
 
 	fn import_tag(&mut self, tag: Tag) {
-		let name_id = self.intern(tag.name);
-		let category_id = self.intern(tag.category);
-		if let Some(&old_tag_id) = self.tag_map.get(&name_id) {
-			let old_tag = &mut self.db.tags[old_tag_id];
+		if let Some(mut old_tag) = self.tag_map.get_mut(&tag.name) {
 			if tag.notes.len() > 0 && tag.notes != old_tag.notes {
 				if old_tag.notes.len() > 0 {
 					old_tag.notes = format!("{} / {}", old_tag.notes, tag.notes);
@@ -132,71 +141,28 @@ impl Wrapper {
 					old_tag.notes = tag.notes;
 				}
 			}
-			if category_id != 0 && category_id != old_tag.category {
-				if old_tag.category != 0 {
+			if tag.category != "" && tag.category != old_tag.category {
+				if old_tag.category != "" {
 					eprintln!(
 						"WARNING: overridden category of tag `{}` (was `{}`, with `{}`)",
-						&self.db.strings[name_id],
-						&self.db.strings[old_tag.category],
-						&self.db.strings[category_id]
+						tag.name, old_tag.category, tag.category,
 					)
 				}
-				old_tag.category = category_id;
+				old_tag.category = tag.category;
 			}
 		} else {
-			let row = TagRow {
-				name: name_id,
-				category: category_id,
-				order: tag.order,
-				notes: tag.notes,
-			};
-			let row_id = self.db.tags.len();
-			self.db.tags.push(row);
-			self.tag_map.insert(name_id, row_id);
+			self.tag_map.insert(tag.name.clone(), tag);
 		}
 	}
 
-	fn get_tags(&mut self, tags: Vec<String>) -> Vec<usize> {
-		tags.into_iter().map(|x| self.get_tag(x)).collect()
-	}
-
-	fn get_tag(&mut self, name: String) -> usize {
-		let name_id = self.intern(name);
-		if let Some(&tag_id) = self.tag_map.get(&name_id) {
-			tag_id
-		} else {
-			let row = TagRow {
-				name: name_id,
-				category: 0,
+	fn map_tags(&mut self, tags: Vec<String>) {
+		for name in tags {
+			self.import_tag(Tag {
+				name: name,
+				category: String::new(),
 				order: 0,
 				notes: String::new(),
-			};
-			let row_id = self.db.tags.len();
-			self.db.tags.push(row);
-			self.tag_map.insert(name_id, row_id);
-			row_id
+			})
 		}
-	}
-
-	fn intern_all(&mut self, values: Vec<String>) -> Vec<usize> {
-		values.into_iter().map(|x| self.intern(x)).collect()
-	}
-
-	fn intern(&mut self, value: String) -> usize {
-		self.db.intern(value, &mut self.intern_indexes)
-	}
-}
-
-fn bytes(value: usize) -> String {
-	if value == 1 {
-		String::from("1 byte")
-	} else if value < 1024 {
-		format!("{} bytes", value)
-	} else if value < 1024 * 1024 {
-		let kb = (value as f64) / 1024.0;
-		format!("{:.2} KB", kb)
-	} else {
-		let mb = (value as f64) / (1024.0 * 1024.0);
-		format!("{:.2} MB", mb)
 	}
 }

@@ -49,6 +49,9 @@ pub struct Term {
 	/// Kana reading for this term.
 	pub reading: String,
 
+	/// Processed search key for this term. Derived from the reading.
+	pub search_key: String,
+
 	/// Tags for the term definitions.
 	pub definition_tags: Vec<String>,
 
@@ -63,6 +66,9 @@ pub struct Term {
 	/// - `vs`    noun or participle which takes the aux. verb suru
 	pub rules: Vec<String>,
 
+	/// Number of occurrences for this term in the frequency database.
+	pub frequency: Option<u32>,
+
 	/// Score for this entry. Higher values have precedence.
 	pub score: i32,
 
@@ -70,7 +76,7 @@ pub struct Term {
 	pub glossary: Vec<String>,
 
 	/// Sequence number for this entry in the dictionary.
-	pub sequence: i32,
+	pub sequence: u32,
 
 	/// Tags for the main term.
 	pub term_tags: Vec<String>,
@@ -113,6 +119,9 @@ impl fmt::Display for Term {
 pub struct Kanji {
 	/// Kanji character.
 	pub character: char,
+
+	/// Number of occurrences for this term in the frequency database.
+	pub frequency: Option<u32>,
 
 	/// Onyomi (chinese) readings for the Kanji.
 	pub onyomi: Vec<String>,
@@ -192,17 +201,14 @@ pub struct Tag {
 
 	/// Description for this tag.
 	pub notes: String,
-
-	/// Unused.
-	pub score: i32,
 }
 
 impl fmt::Display for Tag {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(
 			f,
-			"{} ({}): {} -- {}/{}",
-			self.name, self.category, self.notes, self.order, self.score
+			"{} ({}): {} -- {}",
+			self.name, self.category, self.notes, self.order,
 		)
 	}
 }

@@ -89,14 +89,16 @@ where
 					String,      // rules (CSV)
 					i32,         // score
 					Vec<String>, // glossary
-					i32,         // sequence
+					u32,         // sequence
 					String,      // term tags (CSV)
 				);
 				let rows: Vec<TermRow> = serde_json::from_reader(entry_file)?;
 				for it in rows {
 					dict.terms.push(Term {
 						expression: it.0,
-						reading: it.1,
+						reading: it.1.clone(),
+						search_key: it.1, // TODO: process this
+						frequency: None,
 						definition_tags: csv(&it.2),
 						rules: csv(&it.3),
 						score: it.4,
@@ -120,6 +122,7 @@ where
 				for it in rows {
 					dict.kanji.push(Kanji {
 						character: it.0,
+						frequency: None,
 						onyomi: csv(&it.1),
 						kunyomi: csv(&it.2),
 						tags: csv(&it.3),
@@ -135,7 +138,7 @@ where
 					String, // category
 					i32,    // order
 					String, // notes
-					i32,    // score
+					i32,    // score (unused)
 				);
 				let rows: Vec<TagRow> = serde_json::from_reader(entry_file)?;
 				for it in rows {
@@ -144,7 +147,6 @@ where
 						category: it.1,
 						order: it.2,
 						notes: it.3,
-						score: it.4,
 					});
 				}
 			}
