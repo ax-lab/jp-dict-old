@@ -216,10 +216,10 @@ impl Writer {
 
 		let start = Instant::now();
 
-		let mut raw = DB::default();
+		let mut raw = Raw::default();
 		let mut vector_data: Vec<u32> = Vec::new();
 
-		let mut push_vec = |vec: Vec<u32>| -> VecHandle {
+		let mut push_vec = |mut vec: Vec<u32>| -> VecHandle {
 			if vec.len() == 0 {
 				VecHandle {
 					offset: 0u32.into(),
@@ -228,7 +228,7 @@ impl Writer {
 			} else {
 				let offset = vector_data.len() as u32;
 				let length = vec.len() as u32;
-				vector_data.append(&mut vec.into_iter().map(|x| x.into()).collect::<Vec<u32>>());
+				vector_data.append(&mut vec);
 				VecHandle {
 					offset: offset.into(),
 					length: length.into(),
@@ -384,26 +384,226 @@ pub struct TermData {
 	pub definition_tags: Vec<u32>,
 }
 
-/// Raw database data.
+/// Raw database structure.
+pub struct DB<'a> {
+	tags: &'a [TagRaw],
+	terms: &'a [TermRaw],
+	kanji: &'a [KanjiRaw],
+	index_prefix_jp: &'a [TermIndex],
+	index_suffix_jp: &'a [TermIndex],
+	index_chars_jp: &'a [CharIndex],
+	vector_data: &'a [RawUint32],
+	string_list: &'a [StrHandle],
+	string_data: &'a str,
+}
+
+impl<'a> DB<'a> {
+	pub fn load(data: &'a [u8]) -> DB<'a> {
+		unsafe {
+			let (tags, data) = read_slice::<TagRaw>(data);
+			let (terms, data) = read_slice::<TermRaw>(data);
+			let (kanji, data) = read_slice::<KanjiRaw>(data);
+			let (index_prefix_jp, data) = read_slice::<TermIndex>(data);
+			let (index_suffix_jp, data) = read_slice::<TermIndex>(data);
+			let (index_chars_jp, data) = read_slice::<CharIndex>(data);
+			let (vector_data, data) = read_slice::<RawUint32>(data);
+			let (string_list, data) = read_slice::<StrHandle>(data);
+			let (string_data, _) = read_slice::<u8>(data);
+			let string_data = std::str::from_utf8_unchecked(string_data);
+			DB {
+				tags: tags,
+				terms: terms,
+				kanji: kanji,
+				index_prefix_jp: index_prefix_jp,
+				index_suffix_jp: index_suffix_jp,
+				index_chars_jp: index_chars_jp,
+				vector_data: vector_data,
+				string_list: string_list,
+				string_data: string_data,
+			}
+		}
+	}
+}
+
+impl<'a> DB<'a> {
+	pub fn check(&self) {
+		let start = Instant::now();
+
+		for tag in self.tags.iter() {
+			self.check_string(tag.name, "tag name");
+			self.check_string(tag.category, "tag category");
+			self.check_string(tag.notes, "tag notes");
+		}
+
+		for term in self.terms.iter() {
+			self.check_string(term.expression, "term expression");
+			self.check_string(term.reading, "term reading");
+			self.check_string(term.search_key, "term search key");
+			self.check_vector_strings(term.glossary, "term glossary");
+			self.check_vector_tags(term.rules, "term rules");
+			self.check_vector_tags(term.term_tags, "term tags");
+			self.check_vector_tags(term.definition_tags, "term definition tags");
+		}
+
+		for kanji in self.kanji.iter() {
+			self.check_vector_strings(kanji.meanings, "kanji meanings");
+			self.check_vector_strings(kanji.onyomi, "kanji onyomi");
+			self.check_vector_strings(kanji.kunyomi, "kanji kunyomi");
+			self.check_vector_tags(kanji.tags, "kanji tags");
+
+			self.check_vector(kanji.stats, "kanji stats");
+			let (sta, end) = kanji.stats.range();
+			let mut iter = self.vector_data[sta..end].iter();
+			while let Some(&stat_tag) = iter.next() {
+				let stat_tag: u32 = stat_tag.into();
+				let stat_tag = stat_tag as usize;
+				let stat_val = iter.next().expect("kanji stat tag missing value");
+				assert!(stat_tag <= self.tags.len(), "kanji stat tag out of bounds");
+				self.check_string(*stat_val, "kanji stat value");
+			}
+		}
+
+		for row in self.index_prefix_jp.iter() {
+			self.check_term_index(*row, "prefix index");
+		}
+
+		for row in self.index_suffix_jp.iter() {
+			self.check_term_index(*row, "suffix index");
+		}
+
+		let mut chars_cnt = 0;
+		let mut chars_max = 0;
+		for row in self.index_chars_jp.iter() {
+			let count: u32 = row.indexes.length.into();
+			let count = count as usize;
+			chars_cnt += count;
+			chars_max = std::cmp::max(chars_max, count);
+			self.check_vector_terms(row.indexes, "index chars row");
+		}
+		let chars_len = self.index_chars_jp.len();
+		let chars_avg = chars_cnt / chars_len;
+
+		for (index, s) in self.string_list.iter().enumerate() {
+			let (sta, end) = s.range();
+			assert!(
+				sta <= self.string_data.len(),
+				"string #{}: string start out of bounds",
+				index + 1
+			);
+			assert!(
+				end <= self.string_data.len(),
+				"string #{}: string end out of bounds",
+				index + 1
+			);
+		}
+
+		println!("Database check finished (elapsed {:?})", start.elapsed());
+		println!(
+			"-> {} terms / {} kanji / {} tags",
+			self.terms.len(),
+			self.kanji.len(),
+			self.tags.len()
+		);
+		println!(
+			"-> {} indexed terms / {} chars ({} avg / {} max / {} total)",
+			self.index_chars_jp.len(),
+			chars_len,
+			chars_avg,
+			chars_max,
+			chars_cnt,
+		);
+		println!(
+			"-> {} vector data",
+			bytes(self.vector_data.len() * std::mem::size_of::<u32>())
+		);
+		println!(
+			"-> {} string data ({} strings)",
+			bytes(self.string_data.len()),
+			self.string_list.len()
+		);
+	}
+
+	fn check_term_index(&self, row: TermIndex, name: &str) {
+		self.check_string(row.key, name);
+		let index: u32 = row.term.into();
+		let index = index as usize;
+		assert!(index <= self.terms.len(), "{}: term out of bounds", name);
+	}
+
+	fn check_string(&self, index: RawUint32, name: &str) {
+		let index: u32 = index.into();
+		let index = index as usize;
+		assert!(
+			index < self.string_list.len(),
+			"{}: string index out of bounds",
+			name
+		);
+	}
+
+	fn check_vector_strings(&self, vec: VecHandle, name: &str) {
+		self.check_vector(vec, name);
+		let (sta, end) = vec.range();
+		let name = format!("{} string index:", name);
+		let name = name.as_str();
+		for &index in self.vector_data[sta..end].iter() {
+			self.check_string(index, name);
+		}
+	}
+
+	fn check_vector_tags(&self, vec: VecHandle, name: &str) {
+		self.check_vector(vec, name);
+		let (sta, end) = vec.range();
+		for &index in self.vector_data[sta..end].iter() {
+			let index: u32 = index.into();
+			let index = index as usize;
+			assert!(index < self.tags.len(), "{}: tag index out of bounds", name);
+		}
+	}
+
+	fn check_vector_terms(&self, vec: VecHandle, name: &str) {
+		self.check_vector(vec, name);
+		let (sta, end) = vec.range();
+		for &index in self.vector_data[sta..end].iter() {
+			let index: u32 = index.into();
+			let index = index as usize;
+			assert!(
+				index < self.terms.len(),
+				"{}: term index out of bounds",
+				name
+			);
+		}
+	}
+
+	fn check_vector(&self, vec: VecHandle, name: &str) {
+		let (sta, end) = vec.range();
+		assert!(
+			sta <= self.vector_data.len(),
+			"{}: vector start out of bounds",
+			name
+		);
+		assert!(
+			end <= self.vector_data.len(),
+			"{}: vector end out of bounds",
+			name
+		);
+	}
+}
+
+/// Raw database structure used for building and writing the database.
 #[derive(Default)]
-pub struct DB {
+struct Raw {
 	tags: Vec<TagRaw>,
 	terms: Vec<TermRaw>,
 	kanji: Vec<KanjiRaw>,
 	index_prefix_jp: Vec<TermIndex>,
 	index_suffix_jp: Vec<TermIndex>,
 	index_chars_jp: Vec<CharIndex>,
+	vector_data: Vec<u32>,
 	string_list: Vec<StrHandle>,
 	string_data: String,
-	vector_data: Vec<u32>,
 }
 
-impl DB {
-	pub fn load(data: &[u8]) -> DB {
-		// TODO: implement loading
-		DB::default()
-	}
-
+impl Raw {
 	pub fn write<W: std::io::Write>(self, writer: &mut W) -> std::io::Result<()> {
 		write_all(writer, self.tags)?;
 		write_all(writer, self.terms)?;
@@ -419,6 +619,7 @@ impl DB {
 	}
 }
 
+#[derive(Copy, Clone)]
 struct RawUint32(u32);
 
 impl std::convert::From<u32> for RawUint32 {
@@ -428,12 +629,27 @@ impl std::convert::From<u32> for RawUint32 {
 	}
 }
 
+impl std::convert::Into<u32> for RawUint32 {
+	#[inline]
+	fn into(self) -> u32 {
+		u32::from_le(self.0)
+	}
+}
+
+#[derive(Copy, Clone)]
 struct RawInt32(i32);
 
 impl std::convert::From<i32> for RawInt32 {
 	#[inline]
 	fn from(item: i32) -> Self {
 		Self(item.to_le())
+	}
+}
+
+impl std::convert::Into<i32> for RawInt32 {
+	#[inline]
+	fn into(self) -> i32 {
+		i32::from_le(self.0)
 	}
 }
 
@@ -475,6 +691,7 @@ struct TermRaw {
 
 /// Serialized row for a term index.
 #[repr(C, packed)]
+#[derive(Copy, Clone)]
 struct TermIndex {
 	key: RawUint32,
 	term: RawUint32,
@@ -482,6 +699,7 @@ struct TermIndex {
 
 /// Serialized row for a character index.
 #[repr(C, packed)]
+#[derive(Copy, Clone)]
 struct CharIndex {
 	character: RawUint32,
 	indexes: VecHandle,
@@ -489,16 +707,34 @@ struct CharIndex {
 
 /// Handle for a serialized string.
 #[repr(C, packed)]
+#[derive(Copy, Clone)]
 struct StrHandle {
 	offset: RawUint32,
 	length: RawUint32,
 }
 
+impl StrHandle {
+	fn range(&self) -> (usize, usize) {
+		let offset: u32 = self.offset.into();
+		let length: u32 = self.length.into();
+		(offset as usize, (offset + length) as usize)
+	}
+}
+
 /// Handle for a serialized vector.
 #[repr(C, packed)]
+#[derive(Copy, Clone)]
 struct VecHandle {
 	offset: RawUint32,
 	length: RawUint32,
+}
+
+impl VecHandle {
+	fn range(&self) -> (usize, usize) {
+		let offset: u32 = self.offset.into();
+		let length: u32 = self.length.into();
+		(offset as usize, (offset + length) as usize)
+	}
 }
 
 #[inline]
@@ -544,4 +780,42 @@ fn write_raw<W: io::Write, T: Sized>(writer: &mut W, value: &T) -> Result<()> {
 #[inline]
 unsafe fn to_bytes<T: Sized>(value: &T) -> &[u8] {
 	std::slice::from_raw_parts((value as *const T) as *const u8, std::mem::size_of::<T>())
+}
+
+#[inline]
+unsafe fn read_slice<U>(src: &[u8]) -> (&[U], &[u8]) {
+	const U32_LEN: usize = std::mem::size_of::<u32>();
+
+	assert!(src.len() >= U32_LEN);
+	let count: &[u32] = cast_slice(&src[0..U32_LEN]);
+	let count = u32::from_le(count[0]) as usize;
+	let src = &src[U32_LEN..];
+
+	let item_size = std::mem::size_of::<U>();
+	let data_size = item_size * count;
+	let data = &src[..data_size];
+	let next = &src[data_size..];
+	(cast_slice(data), next)
+}
+
+#[inline]
+unsafe fn cast_slice<T, U>(src: &[T]) -> &[U] {
+	let data_size = std::mem::size_of_val(src);
+	let item_size = std::mem::size_of::<U>();
+	assert_eq!(data_size % item_size, 0);
+	std::slice::from_raw_parts(src.as_ptr() as *const U, data_size / item_size)
+}
+
+fn bytes(value: usize) -> String {
+	if value == 1 {
+		String::from("1 byte")
+	} else if value < 1024 {
+		format!("{} bytes", value)
+	} else if value < 1024 * 1024 {
+		let kb = (value as f64) / 1024.0;
+		format!("{:.2} KB", kb)
+	} else {
+		let mb = (value as f64) / (1024.0 * 1024.0);
+		format!("{:.2} MB", mb)
+	}
 }
