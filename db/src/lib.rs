@@ -7,8 +7,14 @@ use std::time::Instant;
 mod raw;
 use raw::*;
 
+mod data;
+pub use data::*;
+
 mod writer;
 pub use writer::*;
+
+mod search;
+pub use search::*;
 
 /// Root structure for the Japanese database.
 ///
@@ -26,6 +32,42 @@ pub struct DB<'a> {
 	vector_data: &'a [RawUint32],
 	string_list: &'a [StrHandle],
 	string_data: &'a str,
+}
+
+impl<'db> DB<'db> {
+	pub fn term<'a: 'db>(&'a self, index: usize) -> Option<Term<'db, 'a>> {
+		if index < self.terms.len() {
+			Some(Term {
+				pos: index,
+				data: self,
+				item: &self.terms[index],
+			})
+		} else {
+			None
+		}
+	}
+
+	fn get_tag<'a: 'db>(&'a self, index: RawUint32) -> Tag<'db, 'a> {
+		let index: usize = index.into();
+		Tag {
+			data: self,
+			item: &self.tags[index],
+		}
+	}
+
+	fn get_tags<'a: 'db>(&'a self, tags: VecHandle) -> impl 'a + Iterator<Item = Tag<'db, 'a>> {
+		let (sta, end) = tags.range();
+		self.vector_data[sta..end]
+			.iter()
+			.map(move |&index| self.get_tag(index))
+	}
+
+	fn get_str(&self, index: RawUint32) -> &'db str {
+		let index: usize = index.into();
+		let string = &self.string_list[index];
+		let (sta, end) = string.range();
+		&self.string_data[sta..end]
+	}
 }
 
 impl<'a> DB<'a> {

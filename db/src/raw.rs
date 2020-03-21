@@ -32,6 +32,14 @@ impl std::convert::Into<u32> for RawUint32 {
 	}
 }
 
+impl std::convert::Into<usize> for RawUint32 {
+	#[inline]
+	fn into(self) -> usize {
+		let index: u32 = self.into();
+		index as usize
+	}
+}
+
 /// Signed 32 bit integer in LE (little endian) byte order.
 ///
 /// See also `RawUint32`

@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 x-jp-data = { path = "../../" }
+rustyline = "6.0"
 
 [features]
 no-embed = ["x-jp-data/no-embed"]
