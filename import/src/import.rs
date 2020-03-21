@@ -98,7 +98,6 @@ where
 						expression: it.0,
 						reading: it.1.clone(),
 						search_key: it.1, // TODO: process this
-						frequency: None,
 						definition_tags: csv(&it.2),
 						rules: csv(&it.3),
 						score: it.4,
@@ -122,7 +121,6 @@ where
 				for it in rows {
 					dict.kanji.push(Kanji {
 						character: it.0,
-						frequency: None,
 						onyomi: csv(&it.1),
 						kunyomi: csv(&it.2),
 						tags: csv(&it.3),

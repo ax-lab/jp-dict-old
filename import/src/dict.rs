@@ -66,9 +66,6 @@ pub struct Term {
 	/// - `vs`    noun or participle which takes the aux. verb suru
 	pub rules: Vec<String>,
 
-	/// Number of occurrences for this term in the frequency database.
-	pub frequency: Option<u32>,
-
 	/// Score for this entry. Higher values have precedence.
 	pub score: i32,
 
@@ -119,9 +116,6 @@ impl fmt::Display for Term {
 pub struct Kanji {
 	/// Kanji character.
 	pub character: char,
-
-	/// Number of occurrences for this term in the frequency database.
-	pub frequency: Option<u32>,
 
 	/// Onyomi (chinese) readings for the Kanji.
 	pub onyomi: Vec<String>,

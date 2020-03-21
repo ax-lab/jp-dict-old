@@ -90,7 +90,11 @@ impl Wrapper {
 
 			w.push_kanji(db::KanjiData {
 				character: kanji.character,
-				frequency: kanji.frequency.unwrap_or(0),
+				frequency: self
+					.freq_kanji
+					.get(&kanji.character.to_string())
+					.map(|x| *x as u32)
+					.unwrap_or(0),
 				meanings: meanings,
 				kunyomi: kunyomi,
 				onyomi: onyomi,
@@ -100,13 +104,18 @@ impl Wrapper {
 		}
 
 		for term in self.terms {
+			let frequency = self
+				.freq_terms
+				.get(&term.expression)
+				.map(|x| *x as u32)
+				.unwrap_or(0);
 			let term = db::TermData {
 				expression: w.intern(term.expression),
 				reading: w.intern(term.reading),
 				search_key: w.intern(term.search_key),
 				score: term.score,
 				sequence: term.sequence,
-				frequency: term.frequency.unwrap_or(0),
+				frequency: frequency,
 				glossary: term.glossary.into_iter().map(|x| w.intern(x)).collect(),
 				rules: term
 					.rules
