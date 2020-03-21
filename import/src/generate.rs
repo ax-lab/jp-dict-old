@@ -58,6 +58,7 @@ impl Wrapper {
 	pub fn output(self) -> Result<()> {
 		let mut w = db::Writer::new();
 
+		let mut tag_order = HashMap::new();
 		let mut tag_map = HashMap::new();
 		for (index, (key, tag)) in self.tag_map.into_iter().enumerate() {
 			let tag = db::TagData {
@@ -66,20 +67,29 @@ impl Wrapper {
 				order: tag.order,
 				notes: w.intern(tag.notes),
 			};
+			let index = index as u32;
+			tag_map.insert(key, index);
+			tag_order.insert(index, (tag.order, tag.name));
 			w.push_tag(tag);
-			tag_map.insert(key, index as u32);
 		}
+
+		let sort_tag = |a: &u32, b: &u32| {
+			let tag_a = tag_order[a];
+			let tag_b = tag_order[b];
+			tag_a.cmp(&tag_b)
+		};
 
 		for kanji in self.kanji {
 			let meanings: Vec<_> = kanji.meanings.into_iter().map(|x| w.intern(x)).collect();
 			let kunyomi: Vec<_> = kanji.kunyomi.into_iter().map(|x| w.intern(x)).collect();
 			let onyomi: Vec<_> = kanji.onyomi.into_iter().map(|x| w.intern(x)).collect();
 
-			let tags: Vec<_> = kanji
+			let mut tags: Vec<_> = kanji
 				.tags
 				.into_iter()
 				.map(|x| tag_map.get(&x).cloned().unwrap())
 				.collect();
+			tags.sort_by(sort_tag);
 
 			let mut stats: Vec<_> = kanji.stats.into_iter().collect();
 			stats.sort_by(|a, b| a.0.cmp(&b.0));
@@ -109,7 +119,7 @@ impl Wrapper {
 				.get(&term.expression)
 				.map(|x| *x as u32)
 				.unwrap_or(0);
-			let term = db::TermData {
+			let mut term = db::TermData {
 				expression: w.intern(term.expression),
 				reading: w.intern(term.reading),
 				search_key: w.intern(term.search_key),
@@ -133,6 +143,9 @@ impl Wrapper {
 					.map(|x| tag_map.get(&x).cloned().unwrap())
 					.collect(),
 			};
+			term.rules.sort_by(sort_tag);
+			term.term_tags.sort_by(sort_tag);
+			term.definition_tags.sort_by(sort_tag);
 			w.push_term(term);
 		}
 
