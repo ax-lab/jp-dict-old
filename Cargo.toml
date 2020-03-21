@@ -21,3 +21,12 @@ members = [
 [dependencies]
 db = { path = "./db" }
 lazy_static = "1.4"
+
+[features]
+
+# The `no-embed` feature allows disabling embedding of the dictionary data even
+# on release builds.
+#
+# This should only be used for testing in release builds, as it will generate
+# a library that is dependent on the source file.
+no-embed = []

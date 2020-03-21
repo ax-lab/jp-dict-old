@@ -8,3 +8,6 @@ publish = false
 
 [dependencies]
 x-jp-data = { path = "../../" }
+
+[features]
+no-embed = ["x-jp-data/no-embed"]
