@@ -77,6 +77,9 @@ pub struct Term {
 
 	/// Tags for the main term.
 	pub term_tags: Vec<String>,
+
+	/// Source database name.
+	pub source: String,
 }
 
 impl fmt::Display for Term {
@@ -132,6 +135,9 @@ pub struct Kanji {
 	/// Additional kanji information. The keys in `stats` are further detailed
 	/// by the dictionary tags.
 	pub stats: HashMap<String, String>,
+
+	/// Source database name.
+	pub source: String,
 }
 
 impl fmt::Display for Kanji {

@@ -96,6 +96,11 @@ impl<'db, 'a: 'db> Term<'db, 'a> {
 		}
 	}
 
+	/// Source dictionary name.
+	pub fn source(&self) -> &'db str {
+		self.data.get_str(self.item.source)
+	}
+
 	/// English definitions for the term.
 	pub fn glossary(&'a self) -> impl 'a + Iterator<Item = &'db str> {
 		let (sta, end) = self.item.glossary.range();
@@ -155,7 +160,9 @@ impl<'db, 'a: 'db> fmt::Display for Term<'db, 'a> {
 			write!(f, ")")?;
 		}
 
+		write!(f, " -- source: {}", self.source())?;
 		write!(f, "\n")?;
+
 		for (i, it) in self.glossary().enumerate() {
 			if i > 0 {
 				write!(f, ", ")?;

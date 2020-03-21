@@ -86,6 +86,7 @@ impl<'a> DB<'a> {
 			self.check_string(term.expression, "term expression");
 			self.check_string(term.reading, "term reading");
 			self.check_string(term.search_key, "term search key");
+			self.check_string(term.source, "term source");
 			self.check_vector_strings(term.glossary, "term glossary");
 			self.check_vector_tags(term.rules, "term rules");
 			self.check_vector_tags(term.term_tags, "term tags");
@@ -96,6 +97,7 @@ impl<'a> DB<'a> {
 			self.check_vector_strings(kanji.meanings, "kanji meanings");
 			self.check_vector_strings(kanji.onyomi, "kanji onyomi");
 			self.check_vector_strings(kanji.kunyomi, "kanji kunyomi");
+			self.check_string(kanji.source, "kanji source");
 			self.check_vector_tags(kanji.tags, "kanji tags");
 
 			self.check_vector(kanji.stats, "kanji stats");

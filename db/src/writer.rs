@@ -251,6 +251,7 @@ impl Writer {
 			raw.kanji.push(KanjiRaw {
 				character: (kanji.character as u32).into(),
 				frequency: kanji.frequency.into(),
+				source: kanji.source.into(),
 				meanings: push_vec(kanji.meanings),
 				onyomi: push_vec(kanji.onyomi),
 				kunyomi: push_vec(kanji.kunyomi),
@@ -273,6 +274,7 @@ impl Writer {
 				score: term.score.into(),
 				sequence: term.sequence.into(),
 				frequency: term.frequency.into(),
+				source: term.source.into(),
 				glossary: push_vec(term.glossary),
 				rules: push_vec(term.rules),
 				term_tags: push_vec(term.term_tags),
@@ -357,6 +359,8 @@ pub struct KanjiData {
 	/// Additional information for the kanji as a list of `(stat, info)` where
 	/// the `stat` is a tag index and `info` is an interned string.
 	pub stats: Vec<(u32, u32)>,
+	/// Source database name.
+	pub source: u32,
 }
 
 /// Term data for writing.
@@ -384,6 +388,8 @@ pub struct TermData {
 	pub term_tags: Vec<u32>,
 	/// Tag indexes for the english definition.
 	pub definition_tags: Vec<u32>,
+	/// Source database name.
+	pub source: u32,
 }
 
 /// Raw database structure used for building the database for write.

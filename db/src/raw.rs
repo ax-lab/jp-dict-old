@@ -120,6 +120,7 @@ pub struct TagRaw {
 pub struct KanjiRaw {
 	pub character: RawUint32,
 	pub frequency: RawUint32,
+	pub source: RawUint32,
 	pub meanings: VecHandle,
 	pub onyomi: VecHandle,
 	pub kunyomi: VecHandle,
@@ -136,6 +137,7 @@ pub struct TermRaw {
 	pub score: RawInt32,
 	pub sequence: RawUint32,
 	pub frequency: RawUint32,
+	pub source: RawUint32,
 	pub glossary: VecHandle,
 	pub rules: VecHandle,
 	pub term_tags: VecHandle,

@@ -98,6 +98,7 @@ impl Wrapper {
 				.map(|(k, v)| (tag_map.get(&k).cloned().unwrap(), w.intern(v)))
 				.collect();
 
+			let source = w.intern(kanji.source);
 			w.push_kanji(db::KanjiData {
 				character: kanji.character,
 				frequency: self
@@ -110,6 +111,7 @@ impl Wrapper {
 				onyomi: onyomi,
 				tags: tags,
 				stats: stats,
+				source: source,
 			});
 		}
 
@@ -126,6 +128,7 @@ impl Wrapper {
 				score: term.score,
 				sequence: term.sequence,
 				frequency: frequency,
+				source: w.intern(term.source),
 				glossary: term.glossary.into_iter().map(|x| w.intern(x)).collect(),
 				rules: term
 					.rules

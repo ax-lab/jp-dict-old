@@ -104,6 +104,7 @@ where
 						glossary: it.5,
 						sequence: it.6,
 						term_tags: csv(&it.7),
+						source: dict.title.clone(),
 					});
 				}
 			}
@@ -126,6 +127,7 @@ where
 						tags: csv(&it.3),
 						meanings: it.4,
 						stats: it.5,
+						source: dict.title.clone(),
 					});
 				}
 			}
