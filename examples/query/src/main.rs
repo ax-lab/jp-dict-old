@@ -4,14 +4,14 @@ use std::time::Instant;
 
 extern crate rustyline;
 
-extern crate x_jp_data;
+extern crate jp_dict;
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
 fn main() {
 	let start = std::time::Instant::now();
-	let db = x_jp_data::get_db();
+	let db = jp_dict::get_db();
 	println!("\nLoaded in {:?}\n", start.elapsed());
 	db.check();
 	println!();
@@ -55,7 +55,7 @@ fn main() {
 								}
 
 								println!("Searching for `{}`...", it);
-								let mut results = x_jp_data::ResultSet::default();
+								let mut results = jp_dict::ResultSet::default();
 
 								let start = Instant::now();
 								let count = db.search_term(it, &mut results);

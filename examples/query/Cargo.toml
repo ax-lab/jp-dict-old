@@ -3,12 +3,12 @@ name = "query"
 version = "0.1.0"
 authors = ["Ricardo B. Machado <ricardobm@gmail.com>"]
 license = "MIT"
-description = "Query client for x-jp-data"
+description = "Query client for jp-dict"
 publish = false
 
 [dependencies]
-x-jp-data = { path = "../../" }
+jp-dict = { path = "../../" }
 rustyline = "6.0"
 
 [features]
-no-embed = ["x-jp-data/no-embed"]
+no-embed = ["jp-dict/no-embed"]
