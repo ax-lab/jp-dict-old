@@ -9,6 +9,7 @@ extern crate zip;
 extern crate lazy_static;
 
 extern crate db;
+extern crate kana;
 
 use std::fs;
 

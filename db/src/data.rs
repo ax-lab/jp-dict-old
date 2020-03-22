@@ -137,6 +137,8 @@ impl<'db, 'a: 'db> fmt::Display for Term<'db, 'a> {
 				write!(f, " / {}", search_key)?;
 			}
 			write!(f, "]")?;
+		} else if self.search_key().len() > 0 {
+			write!(f, "[{}]", self.search_key())?;
 		}
 
 		if let Some(frequency) = self.frequency() {

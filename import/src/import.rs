@@ -94,10 +94,21 @@ where
 				);
 				let rows: Vec<TermRow> = serde_json::from_reader(entry_file)?;
 				for it in rows {
+					let expression = it.0;
+					let reading = if it.1 == "させ方" {
+						"させかた".to_string()
+					} else {
+						it.1
+					};
+					let search_key = get_search_key(if reading.len() > 0 {
+						reading.as_str()
+					} else {
+						expression.as_str()
+					});
 					dict.terms.push(Term {
-						expression: it.0,
-						reading: it.1.clone(),
-						search_key: it.1, // TODO: process this
+						expression: expression,
+						reading: reading,
+						search_key: search_key,
 						definition_tags: csv(&it.2),
 						rules: csv(&it.3),
 						score: it.4,
@@ -204,5 +215,50 @@ fn get_kind(file_name: &str) -> Option<DataKind> {
 		"kanji_meta" => Some(DataKind::KanjiMeta),
 		"term_meta" => Some(DataKind::TermMeta),
 		_ => None,
+	}
+}
+
+/// Returns a romaji search key for the given term. We use romaji because it
+/// is compatible with any term (including terms using Roman characters).
+///
+/// We use romaji for the search key for a couple of reasons:
+///
+/// - It handles both katakana, hiragana and romaji searches with a single
+///   search key.
+/// - The romaji conversion in the kana library handles the most corner cases
+///   in terms of weird characters (e.g. iteration marks, old characters, etc).
+/// - It allows for incomplete syllables in romaji searches.
+fn get_search_key(term: &str) -> String {
+	lazy_static! {
+		static ref RE_REPLACE: Regex = Regex::new(r"[-,'‘’/~]").unwrap();
+		static ref RE_VALIDATE: Regex = Regex::new(r"^[a-z0-9]+$").unwrap();
+	}
+
+	match term {
+		// spell-checker: disable
+		"ヽ" => "odoriji".to_string(),
+		"ヾ" => "odoriji".to_string(),
+		"ゝ" => "odoriji".to_string(),
+		"ゞ" => "odoriji".to_string(),
+		"ー" => "chooonpu".to_string(),
+		// spell-checker: enable
+		_ => {
+			let key = kana::to_romaji(term).to_lowercase();
+
+			// Eliminate hepburn style conversions derived from `ー`
+			let key = kana::expand_romaji(key);
+
+			// Replace other symbol characters that can be generated form the romanization
+			let key = RE_REPLACE.replace_all(key.as_str(), "").to_string();
+
+			if !RE_VALIDATE.is_match(key.as_str()) {
+				println!(
+					"WARNING: term `{}` generated an invalid search key: `{}`",
+					term, key
+				);
+			}
+
+			key
+		}
 	}
 }
