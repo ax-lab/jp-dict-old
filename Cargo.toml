@@ -15,7 +15,8 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 members = [
 	"db",
 	"import",
-	"examples/query"
+	"examples/query",
+	"examples/dict-js/native"
 ]
 
 [dependencies]

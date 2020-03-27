@@ -1,0 +1,22 @@
+[package]
+name = "dict-js"
+version = "0.1.0"
+authors = ["Ricardo B. Machado <ricardobm@gmail.com>"]
+license = "MIT"
+build = "build.rs"
+edition = "2018"
+exclude = ["artifacts.json", "index.node"]
+
+[lib]
+name = "dict_js"
+crate-type = ["cdylib"]
+
+[build-dependencies]
+neon-build = "0.3"
+
+[dependencies]
+neon = "0.3"
+serde = "1.0"
+serde_derive = "1.0"
+neon-serde = "0.3"
+jp-dict = { path = "../../../", features = ["no-embed"] }
