@@ -1,0 +1,19 @@
+{
+	"name": "dict-ui",
+	"version": "0.1.0",
+	"description": "Japanese dictionary example UI",
+	"scripts": {
+		"build": "tsc",
+		"watch": "tsc -w",
+		"lint": "tslint -c ../tslint.json -p tsconfig.json",
+		"start": "npm run build && electron ./dist/main.js",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"author": "",
+	"license": "MIT",
+	"devDependencies": {
+		"electron": "^8.2.0",
+		"tslint": "^6.1.0",
+		"typescript": "^3.8.3"
+	}
+}

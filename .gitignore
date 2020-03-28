@@ -12,3 +12,8 @@ Cargo.lock
 # Ignore data files
 data/*.zip
 data/*.in
+
+# Node JS
+
+node_modules
+dist
